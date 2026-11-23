@@ -3,7 +3,7 @@
 > Documento técnico da entrega 1.2 do [escopo](../ESCOPO.md). Registra o que
 > foi feito, as decisões tomadas e o motivo de cada uma.
 >
-> **Situação:** em andamento (F5 de 7). Branch `sprint-1/recuperar-senha`.
+> **Situação:** em andamento (F1 a F5 concluídas; próxima: F6). Branch `sprint-1/recuperar-senha`.
 
 ## 1. O que a entrega faz
 
@@ -20,7 +20,7 @@ mensagem clara e oferece pedir outro.
 | F2 | Base provisória do back-end (FastAPI, banco, erro padrão, login mínimo) | Concluída |
 | F3 | Back-end definitivo da recuperação de senha + mensagens em português | Concluída |
 | F4 | Front-end: base provisória, telas definitivas e testes (Vitest) | Concluída |
-| F5 | Teste ponta a ponta (Playwright + Mailpit) | Em andamento |
+| F5 | Teste ponta a ponta (Playwright + Mailpit) | Concluída |
 | F6 | Verificação final: critérios, Definição de pronto, revisão de segurança | Pendente |
 | F7 | Documentação final (CLAUDE.md, este documento) e Pull Request | Pendente |
 
@@ -56,6 +56,16 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | `next.config.ts` (cabeçalho `Referrer-Policy`) | Proteção do token | Não |
 | `src/lib/api/cliente.ts`, `src/app/providers.tsx`, `src/app/layout.tsx`, `src/components/*.tsx` | Cliente HTTP, TanStack Query, layout e componentes | Sim — [0.3] |
 | `src/features/autenticacao/`, `src/app/login/` | Tela de login mínima | Sim — [1.1] |
+
+### Teste ponta a ponta
+
+| Caminho | Papel |
+|---|---|
+| `frontend/playwright.config.ts` | Sobe API (porta 8001) e front (porta 3001, build de produção) só para o teste |
+| `frontend/e2e/recuperacao-senha.spec.ts` | Os cenários |
+| `frontend/e2e/mailpit.ts` | Lê e apaga e-mails pela API REST do Mailpit |
+| `frontend/e2e/preparacao-global.ts`, `usuarios.ts`, `enderecos.ts` | Prepara o banco e2e e define usuários e endereços |
+| `backend/scripts/preparar_banco_e2e.py` | Cria o banco `estudaaqui_e2e`, aplica as migrações e cadastra os usuários |
 
 ## 4. Decisões e motivos
 
@@ -121,6 +131,17 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Next 16.4.5, Vitest 4.1.12, sem `@vitejs/plugin-react` | Versões com mais de duas semanas; Vitest 5 exige `@types/node` 22 (projeto usa Node 20); o plugin trazia um Babel de teste em conflito e o Vite 8 já entende JSX. |
 | `frontend/AGENTS.md` fora do git | Arquivo gerado automaticamente pelo `next dev`; não faz parte do projeto. |
 
+### Teste ponta a ponta
+
+| Decisão | Motivo |
+|---|---|
+| Banco (`estudaaqui_e2e`) e portas (3001/8001) próprios | Nunca apaga dados de desenvolvimento nem reaproveita por engano um servidor de desenvolvimento aberto. |
+| Script de preparação recusa banco que não termine em `_e2e` | Trava contra apagar o banco errado. |
+| Usuários criados direto no banco pelo script | O cadastro pela tela é da issue [1.4], que ainda não existe. |
+| Front em build de produção (`next build` + `next start`) | Testa o que vai ao ar, inclusive o cabeçalho `Referrer-Policy`. |
+| E-mail lido de verdade no Mailpit, filtrado por destinatário | Prova o caminho real (SMTP → caixa → link), sem simulação. |
+| Um teste por vez (`workers: 1`) e um usuário por teste | Os testes compartilham banco e caixa de e-mail; evita interferência. |
+
 ## 5. Critério de aceite → testes
 
 | Critério / requisito | Back-end (pytest) | Front-end (Vitest) |
@@ -135,7 +156,12 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Redefinir encerra sessões | `test_redefinir_encerra_as_sessoes_abertas_antes` | — |
 | Mensagens em português | `test_mensagens_em_portugues.py` (14 casos) | — |
 
-Ponta a ponta (Playwright): em construção na F5.
+Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
+
+| Teste | Cobre |
+|---|---|
+| `pedir o link, ler o e-mail, redefinir a senha e entrar com a nova senha` — login → "Esqueci minha senha" → mensagem genérica → e-mail no Mailpit → link abre sem token na URL e com `Referrer-Policy: no-referrer` → nova senha → entra; senha antiga recusada | C1, C2, C3 |
+| `link já usado mostra mensagem clara e oferece pedir outro` — link usado uma vez pela API, reaberto no navegador → mensagem → "Pedir novo link" leva a `/esqueci-senha` | C2 (uso único), C4 |
 
 ## 6. O que é provisório
 
@@ -160,6 +186,5 @@ administrador, CI, limite de tentativas de login, redirecionamento por perfil,
 
 ## 8. O que falta
 
-- [ ] F5 — Playwright: pedir o link, ler o e-mail no Mailpit, redefinir, entrar; e link já usado.
 - [ ] F6 — conferir critérios e Definição de pronto, revisão de segurança, lint e testes.
 - [ ] F7 — comandos no `CLAUDE.md`, `.env.example` final, versão final deste documento e rascunho do PR.
