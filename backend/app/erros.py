@@ -10,6 +10,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.mensagens_validacao import traduzir_erro
+
 CODIGOS_POR_STATUS = {
     400: "requisicao_invalida",
     401: "nao_autenticado",
@@ -42,9 +44,8 @@ def registrar_tratadores_de_erro(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _erro_validacao(_: Request, erro: RequestValidationError) -> JSONResponse:
-        primeiro = erro.errors()[0]
-        campo = primeiro["loc"][-1]
-        return _resposta(422, "dados_invalidos", f"Campo '{campo}' inválido: {primeiro['msg']}")
+        # Mostra o primeiro problema encontrado, em português.
+        return _resposta(422, "dados_invalidos", traduzir_erro(erro.errors()[0]))
 
     @app.exception_handler(StarletteHTTPException)
     async def _erro_http(_: Request, erro: StarletteHTTPException) -> JSONResponse:

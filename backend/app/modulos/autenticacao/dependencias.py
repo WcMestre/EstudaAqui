@@ -15,7 +15,9 @@ from app.erros import ErroAPI
 from app.modulos.autenticacao.sessao import ler_token
 from app.modulos.usuarios.modelos import Usuario
 
-NAO_AUTENTICADO = ErroAPI(401, "nao_autenticado", "Sua sessão expirou. Entre novamente.")
+
+def nao_autenticado() -> ErroAPI:
+    return ErroAPI(401, "nao_autenticado", "Sua sessão expirou. Entre novamente.")
 
 
 def usuario_atual(
@@ -24,9 +26,14 @@ def usuario_atual(
 ) -> Usuario:
     conteudo = ler_token(token) if token else None
     if conteudo is None:
-        raise NAO_AUTENTICADO
+        raise nao_autenticado()
 
     usuario = sessao.get(Usuario, int(conteudo["sub"]))
     if usuario is None or not usuario.ativo:
-        raise NAO_AUTENTICADO
+        raise nao_autenticado()
+
+    # Issue [1.2] (NÃO provisório; manter na implementação da [1.1]):
+    # sessão aberta antes da última troca de senha não vale mais.
+    if usuario.senha_alterada_em and conteudo["iat"] < usuario.senha_alterada_em.timestamp():
+        raise nao_autenticado()
     return usuario

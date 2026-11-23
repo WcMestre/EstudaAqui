@@ -6,7 +6,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine
 
-import app.modulos.usuarios.modelos  # noqa: F401  (registra a tabela no metadata)
+# Importar os modelos registra as tabelas no metadata (usado pelo autogenerate).
+import app.modulos.recuperacao_senha.modelos
+import app.modulos.usuarios.modelos  # noqa: F401
 from app.banco import Base
 from app.config import configuracoes
 

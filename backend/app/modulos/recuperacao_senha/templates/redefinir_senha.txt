@@ -1,0 +1,11 @@
+{% autoescape false %}Olá, {{ nome }}.
+
+Recebemos um pedido para redefinir a senha da sua conta no EstudaAqui.
+Para criar uma nova senha, abra o endereço abaixo no navegador:
+
+{{ link }}
+
+O link vale por {{ validade }} e só pode ser usado uma vez.
+
+Não pediu a redefinição? Pode ignorar este e-mail: sua senha continua a mesma.
+{% endautoescape %}

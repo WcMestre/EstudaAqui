@@ -19,7 +19,10 @@ def criar_token(usuario_id: int) -> str:
     agora = datetime.now(UTC)
     conteudo = {
         "sub": str(usuario_id),
-        "iat": agora,
+        # iat com fração de segundo (o padrão JWT permite). Com segundos
+        # inteiros, uma sessão aberta no mesmo segundo da troca de senha
+        # seria confundida com uma sessão antiga. Ver issue [1.2].
+        "iat": agora.timestamp(),
         "exp": agora + timedelta(minutes=configuracoes.jwt_expira_minutos),
     }
     return jwt.encode(conteudo, configuracoes.jwt_segredo, algorithm=configuracoes.jwt_algoritmo)

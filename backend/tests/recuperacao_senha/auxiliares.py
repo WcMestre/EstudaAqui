@@ -2,11 +2,17 @@
 
 import re
 from email.message import Message
+from email.utils import parseaddr
 
 URL_ESQUECI_SENHA = "/api/v1/auth/esqueci-senha"
 URL_REDEFINIR_SENHA = "/api/v1/auth/redefinir-senha"
 URL_LOGIN = "/api/v1/auth/login"
 URL_EU = "/api/v1/auth/eu"
+
+
+def destinatario(mensagem: Message) -> str:
+    """Endereço do destinatário, sem o nome (ex.: 'Fulano <f@x.com>' -> 'f@x.com')."""
+    return parseaddr(mensagem["To"])[1]
 
 
 def texto_do_email(mensagem: Message) -> str:

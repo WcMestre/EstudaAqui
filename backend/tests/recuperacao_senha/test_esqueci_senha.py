@@ -11,6 +11,7 @@ import hashlib
 
 from tests.recuperacao_senha.auxiliares import (
     URL_ESQUECI_SENHA,
+    destinatario,
     extrair_token,
     pedir_link,
     texto_do_email,
@@ -27,7 +28,7 @@ def test_email_cadastrado_recebe_mensagem_generica_e_um_email(
     assert resposta.status_code == 200
     assert resposta.json()["mensagem"]
     assert len(caixa_de_saida) == 1
-    assert caixa_de_saida[0]["To"] == "aluno@example.com"
+    assert destinatario(caixa_de_saida[0]) == "aluno@example.com"
 
 
 def test_mesma_mensagem_para_email_inexistente(cliente, criar_usuario, caixa_de_saida):
@@ -50,7 +51,7 @@ def test_mesma_mensagem_e_nenhum_email_para_usuario_inativo(cliente, criar_usuar
 
     assert inativo.status_code == 200
     assert inativo.json() == ativo.json()
-    assert [m["To"] for m in caixa_de_saida] == ["ativo@example.com"]
+    assert [destinatario(m) for m in caixa_de_saida] == ["ativo@example.com"]
 
 
 def test_email_com_formato_invalido_retorna_erro_no_formato_padrao(cliente):
@@ -122,7 +123,7 @@ def test_limite_e_contado_separadamente_para_cada_email(cliente, criar_usuario, 
         cliente.post(URL_ESQUECI_SENHA, json={"email": "primeiro@example.com"})
     cliente.post(URL_ESQUECI_SENHA, json={"email": "segundo@example.com"})
 
-    assert caixa_de_saida[-1]["To"] == "segundo@example.com"
+    assert destinatario(caixa_de_saida[-1]) == "segundo@example.com"
     assert len(caixa_de_saida) == 4
 
 

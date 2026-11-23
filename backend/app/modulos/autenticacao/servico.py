@@ -8,7 +8,9 @@ from app.erros import ErroAPI
 from app.modulos.usuarios.modelos import Usuario
 from app.modulos.usuarios.seguranca import HASH_FICTICIO, verificar_senha
 
-CREDENCIAIS_INVALIDAS = ErroAPI(401, "credenciais_invalidas", "E-mail ou senha incorretos.")
+
+def credenciais_invalidas() -> ErroAPI:
+    return ErroAPI(401, "credenciais_invalidas", "E-mail ou senha incorretos.")
 
 
 def autenticar(sessao: Session, email: str, senha: str) -> Usuario:
@@ -16,5 +18,5 @@ def autenticar(sessao: Session, email: str, senha: str) -> Usuario:
     # Verifica a senha mesmo sem usuário, para o tempo de resposta ser igual.
     senha_ok = verificar_senha(senha, usuario.senha_hash if usuario else HASH_FICTICIO)
     if usuario is None or not senha_ok or not usuario.ativo:
-        raise CREDENCIAIS_INVALIDAS
+        raise credenciais_invalidas()
     return usuario

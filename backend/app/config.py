@@ -22,5 +22,17 @@ class Configuracoes(BaseSettings):
     cookie_sessao_nome: str = "estudaaqui_sessao"
     frontend_url: str = "http://localhost:3000"
 
+    # E-mail (SMTP). Os padrões apontam para o Mailpit do docker-compose.
+    smtp_host: str = "localhost"
+    smtp_porta: int = 1025
+    smtp_usuario: str = ""
+    smtp_senha: str = ""
+    smtp_starttls: bool = False
+    smtp_ssl: bool = False
+    email_remetente: str = "nao-responda@example.com"
+    email_remetente_nome: str = "EstudaAqui"
+    # true = não envia de verdade (usado pelos testes automatizados).
+    email_suprimir_envio: bool = False
+
 
 configuracoes = Configuracoes()

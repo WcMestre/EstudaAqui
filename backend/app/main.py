@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import configuracoes
 from app.erros import registrar_tratadores_de_erro
 from app.modulos.autenticacao.rotas import roteador as rotas_autenticacao
+from app.modulos.recuperacao_senha.rotas import roteador as rotas_recuperacao_senha
 
 app = FastAPI(title="EstudaAqui API", version="0.1.0")
 
@@ -22,3 +23,4 @@ app.add_middleware(
 
 registrar_tratadores_de_erro(app)
 app.include_router(rotas_autenticacao)
+app.include_router(rotas_recuperacao_senha)

@@ -16,5 +16,14 @@ services:
       timeout: 3s
       retries: 10
 
+  # Adicionado pela issue [1.2]: "caixa de e-mail falsa" para desenvolvimento.
+  # A API envia por SMTP na porta 1025; os e-mails aparecem em
+  # http://localhost:8025 (e numa API REST, usada pelo teste ponta a ponta).
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   dados_postgres:
