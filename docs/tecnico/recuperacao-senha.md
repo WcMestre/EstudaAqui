@@ -187,7 +187,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 | Critérios de aceite verificados manualmente, passo a passo | Parcial | Fluxo executado com servidor real e Mailpit (F3) e com navegador real (Playwright, F5). Falta o autor repetir o roteiro "Como testar" do PR no próprio navegador |
 | Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 37, Vitest 14, Playwright 2 |
 | Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
-| Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura dos 6 commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
+| Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura dos 11 commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
 | Comandos novos registrados no `CLAUDE.md` | Atendido | Seção "Comandos" com a escolha do `uv` e os comandos de instalar, rodar, migrar e testar (back, front e ponta a ponta), conferidos num clone novo da branch (F7) |
 
 ### 6.3 Revisão de segurança
