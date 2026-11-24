@@ -253,11 +253,11 @@ Linhas adicionadas na branch em relação à `main` (`git diff --numstat main..H
 | Base provisória ([0.1], [0.2], [0.3], [1.1]) | 24 | 860 | 5,4 |
 | Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.179 | 7,4 |
 | Código definitivo da #6 | 18 | 826 | 5,2 |
-| Documentação (este documento e `CLAUDE.md`) | 2 | 318 | 2,0 |
+| Documentação (este documento e `CLAUDE.md`) | 2 | 317 | 2,0 |
 | Configuração (`package.json`, `.gitignore`, Prettier, `.nvmrc`, `__init__.py`) | 10 | 78 | 0,5 |
-| **Total** | **92** | **15.904** | 100 |
+| **Total** | **92** | **15.903** | 100 |
 
-Sem os arquivos gerados, a entrega tem 3.261 linhas escritas à mão, das quais 36 % são testes.
+Sem os arquivos gerados, a entrega tem 3.260 linhas escritas à mão, das quais 36 % são testes.
 
 ## 9. O que é provisório
 
