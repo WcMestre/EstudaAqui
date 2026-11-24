@@ -22,7 +22,29 @@ EstudaAqui/
 └── CLAUDE.md
 ```
 
-Ainda não há código nem comandos de build/test definidos. Ao criar `frontend/` e `backend/`, **registre aqui** os comandos reais (instalar, rodar, testar, migrar).
+## Comandos
+
+> **Provisório:** a estrutura atual veio da issue [1.2] (recuperação de senha) antes das bases do projeto. Os comandos marcados com [0.1], [0.2] ou [0.3] serão confirmados ou substituídos por essas issues.
+
+**Gerenciador de dependências do back-end: `uv`** (uma das opções da [0.2]). Instala o Python 3.12 fixado em `backend/.python-version` e trava as versões em `backend/uv.lock`, para todos rodarem exatamente o mesmo ambiente.
+
+Pré-requisitos: Docker, [`uv`](https://docs.astral.sh/uv/) e Node 20 (`frontend/.nvmrc`).
+
+| Ação | Comando | Origem |
+|---|---|---|
+| Variáveis de ambiente | `cp .env.example .env` e `cp frontend/.env.example frontend/.env.local` (troque o `JWT_SEGREDO`) | [0.1] |
+| Subir Postgres 16 e Mailpit | `docker compose up -d` (e-mails de desenvolvimento em http://localhost:8025) | [0.1] |
+| Back: instalar | `cd backend && uv sync` | [0.2] |
+| Back: migrar o banco | `uv run alembic upgrade head` | [0.2] |
+| Back: criar migração | `uv run alembic revision --autogenerate -m "descricao"` | [0.2] |
+| Back: rodar | `uv run uvicorn app.main:app --reload` (documentação em http://localhost:8000/docs) | [0.2] |
+| Back: testar | `uv run pytest` (usa o banco `estudaaqui_teste`, criado sozinho) | [0.2] |
+| Back: lint e formatação | `uv run ruff check . && uv run ruff format --check .` | [0.2] |
+| Front: instalar | `cd frontend && npm ci` | [0.3] |
+| Front: rodar | `npm run dev` (http://localhost:3000) | [0.3] |
+| Front: testar | `npm test` (Vitest) | [0.3] |
+| Front: lint, tipos e formatação | `npm run lint && npm run typecheck && npm run format:check` | [0.3] |
+| Ponta a ponta | `npx playwright install --with-deps chromium` (uma vez) e `npm run test:e2e` — exige `docker compose up -d` e `uv` no PATH; usa as portas 3001/8001 e o banco `estudaaqui_e2e` | [0.3] |
 
 ## Domínio e regras de negócio (invariantes)
 
