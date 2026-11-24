@@ -39,4 +39,9 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "RUF"]
+# S = regras de segurança (as do Bandit).
+select = ["E", "F", "I", "B", "UP", "RUF", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# O pytest verifica resultados com `assert`; o aviso S101 só vale fora dos testes.
+"tests/**" = ["S101"]

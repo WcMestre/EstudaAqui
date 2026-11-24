@@ -25,6 +25,14 @@ def texto_do_email(mensagem: Message) -> str:
     return "\n".join(partes)
 
 
+def parte_do_email(mensagem: Message, tipo: str) -> str:
+    """Só uma das versões do e-mail: tipo "html" ou "plain" (texto puro)."""
+    for parte in mensagem.walk():
+        if parte.get_content_type() == f"text/{tipo}":
+            return parte.get_payload(decode=True).decode(parte.get_content_charset() or "utf-8")
+    raise AssertionError(f"o e-mail não tem a parte text/{tipo}")
+
+
 def extrair_token(mensagem: Message) -> str:
     """Tira do e-mail o token que vem no link de redefinição."""
     achado = re.search(r"/redefinir-senha\?token=([A-Za-z0-9_\-]+)", texto_do_email(mensagem))

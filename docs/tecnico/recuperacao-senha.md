@@ -3,7 +3,7 @@
 > Documento técnico da entrega 1.2 do [escopo](../ESCOPO.md). Registra o que
 > foi feito, as decisões tomadas e o motivo de cada uma.
 >
-> **Situação:** em andamento (F1 a F5 concluídas; próxima: F6). Branch `sprint-1/recuperar-senha`.
+> **Situação:** em andamento (F1 a F6 concluídas; próxima: F7). Branch `sprint-1/recuperar-senha`.
 
 ## 1. O que a entrega faz
 
@@ -21,7 +21,7 @@ mensagem clara e oferece pedir outro.
 | F3 | Back-end definitivo da recuperação de senha + mensagens em português | Concluída |
 | F4 | Front-end: base provisória, telas definitivas e testes (Vitest) | Concluída |
 | F5 | Teste ponta a ponta (Playwright + Mailpit) | Concluída |
-| F6 | Verificação final: critérios, Definição de pronto, revisão de segurança | Pendente |
+| F6 | Verificação final: critérios, Definição de pronto, revisão de segurança | Concluída |
 | F7 | Documentação final (CLAUDE.md, este documento) e Pull Request | Pendente |
 
 ## 3. Arquitetura
@@ -128,6 +128,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 |---|---|
 | `uv` como gerenciador do Python | Um dos dois sugeridos na issue [0.2]; rápido e com `uv.lock` reproduzível. |
 | `httpx2` no lugar de `httpx` nos testes | A versão atual do Starlette marca `httpx` como obsoleto no cliente de testes. |
+| `shadcn` em `devDependencies` | O projeto só usa um CSS dele durante o build; a ferramenta de linha de comando não vai para produção. |
 | Next 16.4.5, Vitest 4.1.12, sem `@vitejs/plugin-react` | Versões com mais de duas semanas; Vitest 5 exige `@types/node` 22 (projeto usa Node 20); o plugin trazia um Babel de teste em conflito e o Vite 8 já entende JSX. |
 | `frontend/AGENTS.md` fora do git | Arquivo gerado automaticamente pelo `next dev`; não faz parte do projeto. |
 
@@ -147,7 +148,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Critério / requisito | Back-end (pytest) | Front-end (Vitest) |
 |---|---|---|
 | C1 — "Esqueci minha senha" com mensagem igual para todos | `test_email_cadastrado_recebe_mensagem_generica_e_um_email`, `test_mesma_mensagem_para_email_inexistente`, `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo` | link no login; envio mostra a mensagem genérica |
-| C2 — link de 1 hora e uso único | `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes` | — |
+| C2 — link de 1 hora e uso único | `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez` | — |
 | C3 — nova senha funciona e permite entrar | `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha`, `test_senha_antiga_deixa_de_funcionar_apos_redefinir` | sucesso leva a "Entrar" |
 | C4 — link expirado/usado: mensagem clara e pedir outro | `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_link_inexistente_e_recusado` | 3 códigos + sem token oferecem "Pedir novo link" |
 | Só o hash do token | `test_token_fica_guardado_apenas_como_hash_sha256` | — |
@@ -155,6 +156,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Senha com 8+ caracteres | `test_senha_com_menos_de_8_caracteres_e_recusada_sem_gastar_o_link` | 7 caracteres recusados |
 | Redefinir encerra sessões | `test_redefinir_encerra_as_sessoes_abertas_antes` | — |
 | Mensagens em português | `test_mensagens_em_portugues.py` (14 casos) | — |
+| Segurança (ataques específicos) | `test_seguranca.py` (3 testes; ver §6.3) | — |
 
 Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
 
@@ -163,7 +165,72 @@ Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
 | `pedir o link, ler o e-mail, redefinir a senha e entrar com a nova senha` — login → "Esqueci minha senha" → mensagem genérica → e-mail no Mailpit → link abre sem token na URL e com `Referrer-Policy: no-referrer` → nova senha → entra; senha antiga recusada | C1, C2, C3 |
 | `link já usado mostra mensagem clara e oferece pedir outro` — link usado uma vez pela API, reaberto no navegador → mensagem → "Pedir novo link" leva a `/esqueci-senha` | C2 (uso único), C4 |
 
-## 6. O que é provisório
+## 6. Verificação final (F6)
+
+Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLint,
+`tsc`, Prettier e `alembic check` sem pendências.
+
+### 6.1 Critérios de aceite da issue #6
+
+| # | Critério | Comprovação | Resultado |
+|---|---|---|---|
+| C1 | Na tela de login existe "Esqueci minha senha"; o usuário informa o e-mail e recebe a mesma mensagem, exista o e-mail ou não | Vitest: link no login aponta para `/esqueci-senha`; envio mostra a mensagem genérica. pytest: `test_email_cadastrado_recebe_mensagem_generica_e_um_email`, `test_mesma_mensagem_para_email_inexistente`, `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo`. Playwright: clica no link do login e vê a mensagem | Atendido |
+| C2 | O e-mail contém um link com validade limitada (1 hora) e de uso único | pytest: `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez`. Playwright: link lido no Mailpit; link já usado | Atendido |
+| C3 | Pelo link o usuário define uma nova senha e consegue entrar com ela | pytest: `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha`, `test_senha_antiga_deixa_de_funcionar_apos_redefinir`. Vitest: sucesso oferece "Entrar". Playwright: entra com a nova senha; a antiga é recusada | Atendido |
+| C4 | Link expirado ou já usado mostra mensagem clara e oferece pedir outro | pytest: `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_link_inexistente_e_recusado`. Vitest: os 3 códigos e a falta de token mostram a mensagem e "Pedir novo link". Playwright: link já usado → mensagem → "Pedir novo link" abre `/esqueci-senha` | Atendido |
+
+### 6.2 Definição de pronto
+
+| Item | Situação | Comprovação |
+|---|---|---|
+| Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR e pedido de revisão na F7 |
+| Critérios de aceite verificados manualmente, passo a passo | Parcial | Fluxo executado com servidor real e Mailpit (F3) e com navegador real (Playwright, F5). Falta o autor repetir o roteiro "Como testar" do PR no próprio navegador |
+| Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 37, Vitest 14, Playwright 2 |
+| Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
+| Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura dos 6 commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
+| Comandos novos registrados no `CLAUDE.md` | Pendente | Feito na F7 |
+
+### 6.3 Revisão de segurança
+
+**Verificações automáticas**
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Regras de segurança do ruff (Bandit) | `uv run ruff check --select S .` | 66 avisos, todos S101 (`assert`) em `tests/`: é como o pytest verifica resultados. Justificado. Código da aplicação, scripts e migrações: 0. A regra `S` ficou **ativa permanentemente** no `pyproject.toml`, com exceção do S101 só em `tests/` |
+| Dependências do back-end | `uv export ... > req.txt && uvx pip-audit -r req.txt` | 55 pacotes, **0 vulnerabilidades** |
+| Dependências do front-end | `npm audit` e `npm audit --omit=dev` | Produção: **0**. Completo: 4 moderadas, uma só cadeia (`shadcn` → `ts-morph` → `minimatch`, lentidão com padrão de arquivo malicioso). É a ferramenta de linha de comando do shadcn: não entra no build (conferido em `.next/`) e só processa padrões do próprio desenvolvedor. O `shadcn` foi movido para `devDependencies` (o projeto só usa um CSS dele no build). O `npm audit fix --force` rebaixaria o shadcn para 1.0.0 e quebraria o projeto; forçar `minimatch` 11 via `overrides` contraria a versão pedida pelo `@ts-morph/common` |
+| Segredos no histórico | varredura de `git log -p main..HEAD` | 0. Só os `.env.example` (valores de exemplo) foram versionados; nenhuma chave conhecida (GitHub, AWS, chave privada, JWT); o segredo real do `.env` local não aparece em nenhum commit |
+
+**Ameaça → Proteção → Teste que comprova**
+
+| Ameaça | Proteção | Teste que comprova |
+|---|---|---|
+| Descobrir quem tem conta pela resposta | Resposta sempre 200 com a mesma mensagem (inclusive inativos e limite estourado) | `test_mesma_mensagem_para_email_inexistente`, `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo`, `test_limite_de_tres_pedidos_por_hora_e_silencioso` |
+| Descobrir quem tem conta pelo tempo de resposta | Busca, token e e-mail rodam depois da resposta (`BackgroundTasks`) | Medição manual (F3): mediana 8,4 ms × 10,8 ms. Sem teste automatizado: tempo varia por máquina e daria falso alarme |
+| Adivinhar um token | `secrets.token_urlsafe(32)` (256 bits) | `test_link_inexistente_e_recusado` |
+| Vazamento do banco expõe links válidos | Só o hash SHA-256 é guardado | `test_token_fica_guardado_apenas_como_hash_sha256` |
+| Reusar um link | Uso único (`usado_em`) | `test_link_ja_usado_e_recusado_com_mensagem_clara`; Playwright "link já usado" |
+| Usar o mesmo link várias vezes em paralelo | `SELECT ... FOR UPDATE` no token | `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez` (sem o `FOR UPDATE` o teste falha: 5 trocas aceitas) |
+| E-mail antigo esquecido na caixa vira porta dos fundos | Usar um link invalida os pendentes | `test_usar_um_link_invalida_os_outros_links_pendentes` |
+| Link usado muito depois | Validade de 1 hora | `test_token_expira_em_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara` |
+| Inundar a caixa de alguém | 3 pedidos por hora por e-mail, silencioso | `test_limite_de_tres_pedidos_por_hora_e_silencioso`, `test_limite_e_contado_separadamente_para_cada_email`, `test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite` |
+| Invasor segue logado depois da troca | `senha_alterada_em` + recusa de JWT com `iat` anterior | `test_redefinir_encerra_as_sessoes_abertas_antes` (e `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha` prova que a sessão nova vale) |
+| Token vaza pelo histórico, prints ou cabeçalho `Referer` | Token apagado da URL + `Referrer-Policy: no-referrer` | Vitest "tira o token da URL..."; Playwright confere URL limpa e o cabeçalho |
+| Link do e-mail apontar para o site do atacante (cabeçalho `Host` falso) | Link montado com `FRONTEND_URL` da configuração | `test_link_usa_o_endereco_configurado_e_ignora_o_host_do_pedido` |
+| Injetar HTML no e-mail pelo nome | `autoescape` do Jinja2 | `test_nome_do_usuario_nao_vira_html_no_email` |
+| Gastar CPU com senha gigante (Argon2) | Máximo de 128 caracteres | `test_senha_longa_demais_tem_mensagem_em_portugues` |
+| Usuário inativado recuperar acesso | Inativo não recebe link nem redefine | `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo`, `test_usuario_inativado_depois_do_pedido_nao_consegue_redefinir` |
+| Outro site chamar a API com o cookie do usuário | CORS só para `FRONTEND_URL`, cookie `SameSite=Lax`; redefinir exige o token | Verificação manual (F4): preflight de outra origem recusado (400) |
+| Link secreto parar em log | Falha de SMTP registrada sem o link | Revisão de código (`email.py`) |
+
+**Limitações conhecidas** (fora do escopo da #6)
+
+- A busca do e-mail não diferencia maiúsculas, mas a coluna `email` da tabela
+  provisória é única diferenciando maiúsculas. Se existirem `A@x.com` e
+  `a@x.com`, o link vai para um deles. Normalizar e-mails é da [1.1]/[1.4].
+- O limite é por e-mail; não há limite por IP (a issue não pede).
+
+## 7. O que é provisório
 
 Todo arquivo provisório tem no topo o comentário
 `PROVISÓRIO: substituir pela implementação da issue [x.y]`. Ao substituir,
@@ -178,13 +245,14 @@ Fora da base provisória (são entregas de outras issues): rota `/saude`, seed d
 administrador, CI, limite de tentativas de login, redirecionamento por perfil,
 `middleware.ts`.
 
-## 7. Pontos a combinar com o grupo
+## 8. Pontos a combinar com o grupo
+
+Situação em 24/11/2026: **a combinar** (o grupo ainda não foi avisado).
 
 - Uso do `uv`, base provisória e Mailpit no `docker-compose.yml` (issues [0.1], [0.2], [0.3]).
 - Com o responsável pela [1.1]: coluna `senha_alterada_em`, verificação do
   `iat` no `usuario_atual` e `iat` com fração de segundo.
 
-## 8. O que falta
+## 9. O que falta
 
-- [ ] F6 — conferir critérios e Definição de pronto, revisão de segurança, lint e testes.
 - [ ] F7 — comandos no `CLAUDE.md`, `.env.example` final, versão final deste documento e rascunho do PR.
