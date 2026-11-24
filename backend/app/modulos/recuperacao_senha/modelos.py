@@ -5,7 +5,10 @@ Situações de um registro:
 - pendente:     usado_em vazio, ativo = true e expira_em no futuro;
 - usado:        usado_em preenchido (o link que de fato trocou a senha);
 - invalidado:   ativo = false (outro link do mesmo usuário foi usado antes);
-- expirado:     expira_em no passado.
+- expirado:     expira_em no passado;
+- não enviado:  falha_envio_em preenchido e ativo = false (o e-mail com o link
+                não saiu). Não conta no limite de pedidos e não serve para
+                trocar a senha.
 """
 
 from datetime import datetime
@@ -24,5 +27,6 @@ class TokenRedefinicaoSenha(ModeloBase):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     usado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    falha_envio_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     usuario: Mapped[Usuario] = relationship()

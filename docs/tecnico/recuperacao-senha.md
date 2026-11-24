@@ -32,7 +32,7 @@ mensagem clara e oferece pedir outro.
 |---|---|---|
 | `app/modulos/recuperacao_senha/` | Rotas, serviço, modelo, schemas, e-mail e templates da entrega | Não |
 | `app/mensagens_validacao.py` | Tradução das mensagens de validação para português | Não |
-| `migracoes/versions/0002_*`, `0003_*` | Coluna `senha_alterada_em` e tabela `tokens_redefinicao_senha` | Não |
+| `migracoes/versions/0002_*`, `0003_*`, `0004_*` | Coluna `senha_alterada_em`, tabela `tokens_redefinicao_senha` e coluna `falha_envio_em` | Não |
 | `app/main.py`, `config.py`, `banco.py`, `erros.py` | Núcleo da API | Sim — [0.2] |
 | `app/modulos/usuarios/`, `app/modulos/autenticacao/` | Tabela `usuarios`, Argon2, JWT em cookie, login | Sim — [1.1] |
 | `docker-compose.yml`, `.env.example` | Postgres 16 e Mailpit | Sim — [0.1] |
@@ -45,7 +45,7 @@ Rotas:
 | `POST /api/v1/auth/redefinir-senha` | `{"token", "nova_senha"}` | `200 {"mensagem"}` ou `400 {"codigo", "mensagem"}` com `link_invalido`, `link_expirado` ou `link_ja_usado` |
 
 Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
-`expira_em`, `usado_em`, `ativo`, `criado_em`, `atualizado_em`.
+`expira_em`, `usado_em`, `falha_envio_em`, `ativo`, `criado_em`, `atualizado_em`.
 
 ### Front-end (`frontend/`)
 
@@ -113,6 +113,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | `autoescape` ligado no HTML | Um nome como `<b>x</b>` vira texto, não HTML. |
 | Mailpit no `docker-compose.yml` (versão fixada) | Exigência da issue; mostra os e-mails em http://localhost:8025 e tem API usada no teste ponta a ponta. |
 | Falha de SMTP vai para o log, sem o link | O link é secreto e não deve aparecer em log. |
+| Link cujo e-mail falhou recebe `falha_envio_em` e `ativo = false` | Não conta no limite de 3 por hora (a pessoa pode pedir de novo assim que o SMTP voltar) e não troca a senha (`link_invalido`). Ver §12.2. |
 
 ### Front-end
 
@@ -153,7 +154,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | C3 — nova senha funciona e permite entrar | `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha`, `test_senha_antiga_deixa_de_funcionar_apos_redefinir` | sucesso leva a "Entrar" |
 | C4 — link expirado/usado: mensagem clara e pedir outro | `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_link_inexistente_e_recusado` | 3 códigos + sem token oferecem "Pedir novo link" |
 | Só o hash do token | `test_token_fica_guardado_apenas_como_hash_sha256` | — |
-| 3 pedidos por hora | `test_limite_de_tres_pedidos_por_hora_e_silencioso`, `test_limite_e_contado_separadamente_para_cada_email`, `test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite` | — |
+| 3 pedidos por hora | `test_limite_de_tres_pedidos_por_hora_e_silencioso`, `test_limite_e_contado_separadamente_para_cada_email`, `test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite`, `test_falha_no_envio_do_email_nao_gasta_o_limite_de_pedidos` | — |
 | Senha com 8+ caracteres | `test_senha_com_menos_de_8_caracteres_e_recusada_sem_gastar_o_link` | 7 caracteres recusados |
 | Redefinir encerra sessões | `test_redefinir_encerra_as_sessoes_abertas_antes` | — |
 | Mensagens em português | `test_mensagens_em_portugues.py` (14 casos) | — |
@@ -168,7 +169,7 @@ Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
 
 ## 6. Verificação final (F6)
 
-Executada em 24/11/2026: pytest 38/38 (37 + 1 da revisão do PR, §12), Vitest 14/14, Playwright 2/2; ruff, ESLint,
+Executada em 24/11/2026: pytest 39/39 (37 + 2 da revisão do PR, §12), Vitest 14/14, Playwright 2/2; ruff, ESLint,
 `tsc`, Prettier e `alembic check` sem pendências.
 
 ### 6.1 Critérios de aceite da issue #6
@@ -186,7 +187,7 @@ Executada em 24/11/2026: pytest 38/38 (37 + 1 da revisão do PR, §12), Vitest 1
 |---|---|---|
 | Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR com pedido de revisão aberto na F7, aguardando o revisor |
 | Critérios de aceite verificados manualmente, passo a passo | Atendido | Roteiro manual da seção 7 (10 passos) executado pelo autor no navegador em 24/11/2026, todos com o resultado esperado; conferido pelos registros da API, do banco e do Mailpit. Antes disso: servidor real e Mailpit (F3) e navegador real via Playwright (F5) |
-| Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 38, Vitest 14, Playwright 2 |
+| Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 39, Vitest 14, Playwright 2 |
 | Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
 | Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura de todos os commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
 | Comandos novos registrados no `CLAUDE.md` | Atendido | Seção "Comandos" com a escolha do `uv` e os comandos de instalar, rodar, migrar e testar (back, front e ponta a ponta), conferidos num clone novo da branch (F7) |
@@ -216,6 +217,7 @@ Executada em 24/11/2026: pytest 38/38 (37 + 1 da revisão do PR, §12), Vitest 1
 | E-mail antigo esquecido na caixa vira porta dos fundos | Usar um link invalida os pendentes | `test_usar_um_link_invalida_os_outros_links_pendentes` |
 | Link usado muito depois | Validade de 1 hora | `test_token_expira_em_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara` |
 | Inundar a caixa de alguém | 3 pedidos por hora por e-mail, silencioso | `test_limite_de_tres_pedidos_por_hora_e_silencioso`, `test_limite_e_contado_separadamente_para_cada_email`, `test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite` |
+| Falha do SMTP deixa a pessoa 1 hora sem conseguir pedir o link | Link com falha de envio recebe `falha_envio_em`, é inativado e não conta no limite; envio em andamento continua contando | `test_falha_no_envio_do_email_nao_gasta_o_limite_de_pedidos` (antes da correção o 4º pedido, com o SMTP de volta, não enviava nada); verificação manual com o Mailpit parado (§12.2) |
 | Invasor segue logado depois da troca | `senha_alterada_em` + recusa de JWT com `iat` anterior | `test_redefinir_encerra_as_sessoes_abertas_antes` (e `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha` prova que a sessão nova vale) |
 | Token vaza pelo histórico, prints ou cabeçalho `Referer` | Token apagado da URL + `Referrer-Policy: no-referrer` | Vitest "tira o token da URL..."; Playwright confere URL limpa e o cabeçalho |
 | Link do e-mail apontar para o site do atacante (cabeçalho `Host` falso) | Link montado com `FRONTEND_URL` da configuração | `test_link_usa_o_endereco_configurado_e_ignora_o_host_do_pedido` |
@@ -223,7 +225,7 @@ Executada em 24/11/2026: pytest 38/38 (37 + 1 da revisão do PR, §12), Vitest 1
 | Gastar CPU com senha gigante (Argon2) | Máximo de 128 caracteres | `test_senha_longa_demais_tem_mensagem_em_portugues` |
 | Usuário inativado recuperar acesso | Inativo não recebe link nem redefine | `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo`, `test_usuario_inativado_depois_do_pedido_nao_consegue_redefinir` |
 | Outro site chamar a API com o cookie do usuário | CORS só para `FRONTEND_URL`, cookie `SameSite=Lax`; redefinir exige o token | Verificação manual (F4): preflight de outra origem recusado (400) |
-| Link secreto parar em log | Falha de SMTP registrada sem o link | Revisão de código (`email.py`) |
+| Link secreto parar em log | Falha de SMTP registrada sem o link | Revisão de código (`email.py`); verificação manual da §12.2 (3 falhas no log, nenhum link) |
 
 **Limitações conhecidas** (fora do escopo da #6)
 
@@ -251,15 +253,15 @@ Linhas adicionadas na branch em relação à `main` (`git diff --numstat main..H
 
 | Grupo | Arquivos | Linhas | % |
 |---|---:|---:|---:|
-| Gerados automaticamente (travas de versão `package-lock.json`/`uv.lock` = 11.948; componentes e configurações do shadcn/Next/Alembic) | 17 | 12.643 | 79,0 |
-| Base provisória ([0.1], [0.2], [0.3], [1.1]) | 24 | 860 | 5,4 |
-| Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.222 | 7,6 |
-| Código definitivo da #6 | 18 | 844 | 5,3 |
-| Documentação (este documento e `CLAUDE.md`) | 2 | 348 | 2,2 |
+| Gerados automaticamente (travas de versão `package-lock.json`/`uv.lock` = 11.948; componentes e configurações do shadcn/Next/Alembic) | 17 | 12.643 | 78,3 |
+| Base provisória ([0.1], [0.2], [0.3], [1.1]) | 24 | 860 | 5,3 |
+| Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.261 | 7,8 |
+| Código definitivo da #6 | 19 | 908 | 5,6 |
+| Documentação (este documento e `CLAUDE.md`) | 2 | 400 | 2,5 |
 | Configuração (`package.json`, `.gitignore`, Prettier, `.nvmrc`, `__init__.py`) | 10 | 78 | 0,5 |
-| **Total** | **92** | **15.995** | 100 |
+| **Total** | **93** | **16.150** | 100 |
 
-Sem os arquivos gerados, a entrega tem 3.352 linhas escritas à mão, das quais 36 % são testes.
+Sem os arquivos gerados, a entrega tem 3.507 linhas escritas à mão, das quais 36 % são testes.
 
 ## 9. O que é provisório
 
@@ -320,6 +322,56 @@ fila do usuário sem segurar nada e, quando entra, lê o próprio link de novo
 (`populate_existing`), já invalidado pela primeira, e recebe `link_ja_usado`.
 
 **Comprovação.** Teste novo: 5 execuções de 20 rodadas (100 disputas), todas
-com um `200` e um `400 link_ja_usado`, sem nenhum deadlock no log. pytest 38,
+com um `200` e um `400 link_ja_usado`, sem nenhum deadlock no log. Na época, pytest 38,
 Vitest 14 e Playwright 2 passando; ruff sem pendências.
 
+### 12.2 Falha do SMTP não pode gastar o limite de 3 pedidos por hora
+
+**O problema.** O link era gravado no banco antes do envio, e o limite contava
+todos os links da última hora, inclusive os que nunca chegaram. Com o servidor
+de e-mail fora do ar por alguns minutos, três tentativas bastavam para deixar a
+pessoa **uma hora** sem conseguir recuperar a senha, sem ter recebido nada.
+
+**A correção (opção B).**
+
+- Coluna nova `falha_envio_em` (migração `0004`). Quando o envio falha, o link
+  recebe a data da falha e `ativo = false`. Continua no banco, como manda a
+  exclusão lógica do CLAUDE.md: nada é apagado.
+- O limite conta só os links da última hora com `falha_envio_em` vazio. Um envio
+  **em andamento** continua contando, por isso vários pedidos ao mesmo tempo não
+  furam o limite enquanto os e-mails saem.
+- Um link com falha de envio não troca a senha e responde `link_invalido`.
+  Ninguém deveria ter esse link, e responder "já foi usado" seria falso.
+- `enviar_email_redefinicao` passou a dizer se o SMTP aceitou a mensagem. A
+  falha continua indo para o log sem o link.
+
+**Por que uma coluna além das quatro da issue.** A issue #6 lista as colunas
+**necessárias** (`usuario_id`, `token_hash`, `expira_em`, `usado_em`), sem
+proibir outras. A tabela já tinha `ativo`, `criado_em` e `atualizado_em`, que
+vêm da convenção da base. As quatro colunas da issue continuam iguais e com o
+mesmo significado. `falha_envio_em` guarda um fato que nenhuma delas guarda (o
+e-mail não saiu) e ainda permite saber depois quando e quantas vezes o envio
+falhou.
+
+**Opções descartadas.**
+
+| Opção | Como seria | Por que foi descartada |
+|---|---|---|
+| A | Marcar o link com falha só com `ativo = false` e contar no limite só os links ativos | `ativo = false` passaria a ter dois sentidos ("outro link foi usado" e "e-mail não saiu"). Também abriria uma brecha: depois de uma troca de senha, os links invalidados deixariam de contar e a pessoa ganharia mais 3 pedidos na mesma hora. |
+| C | Enviar o e-mail com a transação aberta e só gravar o link se o envio der certo | A linha do usuário ficaria travada durante todo o envio SMTP, que pode levar segundos, e pedidos e trocas de senha da mesma conta esperariam. Se a gravação falhasse depois do envio, a pessoa receberia um link que não funciona. E não sobraria registro da falha. |
+
+**Comprovação.**
+
+- Teste novo (`test_falha_no_envio_do_email_nao_gasta_o_limite_de_pedidos`):
+  com o SMTP simulado fora do ar, faz 3 pedidos; depois, com o SMTP de volta,
+  faz o 4º pedido na mesma hora, que precisa chegar. Por fim, confere que os 3
+  links que não chegaram respondem `link_invalido`. **Antes da correção**, o
+  teste falhou no 4º pedido (`nenhum e-mail foi enviado`). **Depois**, passou.
+- Verificação manual com SMTP real em 24/11/2026: API rodando, Mailpit
+  **parado**, 3 pedidos (todos `200`); Mailpit ligado de novo, 4º pedido. O
+  e-mail chegou ao Mailpit; no banco, os 3 primeiros links ficaram com
+  `falha_envio_em` preenchido e `ativo = false`, e o 4º ficou ativo; o log
+  registrou as 3 falhas sem nenhum link. Os dados da verificação foram apagados
+  depois.
+- pytest 39, Vitest 14 e Playwright 2 passando; ruff e `alembic check` sem
+  pendências.

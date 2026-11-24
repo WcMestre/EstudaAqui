@@ -11,6 +11,7 @@ import hashlib
 
 from tests.recuperacao_senha.auxiliares import (
     URL_ESQUECI_SENHA,
+    URL_REDEFINIR_SENHA,
     destinatario,
     extrair_token,
     pedir_link,
@@ -138,3 +139,41 @@ def test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite(
     cliente.post(URL_ESQUECI_SENHA, json={"email": "aluno@example.com"})
 
     assert len(caixa_de_saida) == 4
+
+
+def test_falha_no_envio_do_email_nao_gasta_o_limite_de_pedidos(
+    cliente, criar_usuario, caixa_de_saida, monkeypatch
+):
+    """Se o SMTP falhar, o pedido não pode contar no limite de 3 por hora.
+
+    Caso contrário, três falhas seguidas deixariam a pessoa uma hora sem
+    conseguir recuperar a senha, sem nunca ter recebido e-mail nenhum.
+    """
+    from app.modulos.recuperacao_senha.email import cliente_email
+
+    criar_usuario(email="aluno@example.com")
+    links_que_nao_chegaram = []
+
+    async def smtp_fora_do_ar(mensagem, **_):
+        links_que_nao_chegaram.append(mensagem.template_body["link"])
+        raise ConnectionRefusedError("servidor SMTP fora do ar")
+
+    monkeypatch.setattr(cliente_email, "send_message", smtp_fora_do_ar)
+    for _ in range(3):
+        resposta = cliente.post(URL_ESQUECI_SENHA, json={"email": "aluno@example.com"})
+        assert resposta.status_code == 200
+    assert len(links_que_nao_chegaram) == 3
+    assert len(caixa_de_saida) == 0
+
+    # O SMTP volta: o 4º pedido na mesma hora precisa chegar.
+    monkeypatch.undo()
+    pedir_link(cliente, caixa_de_saida, "aluno@example.com")
+
+    # Os links que não chegaram não servem para trocar a senha.
+    for link in links_que_nao_chegaram:
+        token = link.split("token=")[1]
+        resposta = cliente.post(
+            URL_REDEFINIR_SENHA, json={"token": token, "nova_senha": "SenhaNova123"}
+        )
+        assert resposta.status_code == 400
+        assert resposta.json()["codigo"] == "link_invalido"

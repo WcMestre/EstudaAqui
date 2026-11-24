@@ -6,6 +6,8 @@ Pedido do link (esqueci-senha):
   Assim nem a resposta nem o tempo dela denunciam se o e-mail existe.
 - Limite de 3 pedidos por hora por usuário: o excedente é ignorado em
   silêncio (sem e-mail, mas com a mesma resposta).
+- Se o e-mail não puder ser enviado (falha do SMTP), o link é marcado com
+  `falha_envio_em` e inativado: não conta no limite e não troca a senha.
 
 Troca da senha (redefinir-senha):
 - O link vale 1 hora e serve uma única vez. Ao ser usado, os outros links
@@ -66,13 +68,19 @@ def calcular_hash(token: str) -> str:
 
 async def processar_pedido(email: str) -> None:
     """Tarefa de segundo plano disparada por POST /esqueci-senha."""
-    dados = await run_in_threadpool(_registrar_pedido, email)
-    if dados is not None:
-        await enviar_email_redefinicao(**dados)
+    pedido = await run_in_threadpool(_registrar_pedido, email)
+    if pedido is None:
+        return
+    token_id, dados_do_email = pedido
+    if not await enviar_email_redefinicao(**dados_do_email):
+        await run_in_threadpool(_registrar_falha_de_envio, token_id)
 
 
-def _registrar_pedido(email: str) -> dict[str, str] | None:
-    """Gera e grava o token. Devolve os dados do e-mail, ou None se não deve enviar."""
+def _registrar_pedido(email: str) -> tuple[int, dict[str, str]] | None:
+    """Gera e grava o token.
+
+    Devolve o id do registro e os dados do e-mail, ou None se não deve enviar.
+    """
     with SessaoLocal() as sessao:
         # FOR UPDATE trava a linha do usuário: dois pedidos simultâneos não
         # conseguem furar o limite contando ao mesmo tempo.
@@ -85,28 +93,47 @@ def _registrar_pedido(email: str) -> dict[str, str] | None:
             return None
 
         token = secrets.token_urlsafe(32)  # 32 bytes aleatórios = 256 bits
-        sessao.add(
-            TokenRedefinicaoSenha(
-                usuario_id=usuario.id,
-                token_hash=calcular_hash(token),
-                expira_em=datetime.now(UTC) + VALIDADE_DO_LINK,
-            )
+        registro = TokenRedefinicaoSenha(
+            usuario_id=usuario.id,
+            token_hash=calcular_hash(token),
+            expira_em=datetime.now(UTC) + VALIDADE_DO_LINK,
         )
+        sessao.add(registro)
         sessao.commit()
-        return {
+        return registro.id, {
             "destinatario": usuario.email,
             "nome": usuario.nome,
             "link": f"{configuracoes.frontend_url}/redefinir-senha?token={token}",
         }
 
 
+def _registrar_falha_de_envio(token_id: int) -> None:
+    """Marca o link cujo e-mail não saiu: deixa de contar no limite e de valer.
+
+    Exclusão lógica: o registro fica no banco (com a data da falha), só inativado.
+    """
+    with SessaoLocal() as sessao:
+        sessao.execute(
+            update(TokenRedefinicaoSenha)
+            .where(TokenRedefinicaoSenha.id == token_id)
+            .values(falha_envio_em=func.now(), ativo=False)
+        )
+        sessao.commit()
+
+
 def _pedidos_na_ultima_hora(sessao: Session, usuario_id: int) -> int:
+    """Pedidos que contam no limite: os da última hora cujo envio não falhou.
+
+    Um envio ainda em andamento conta (falha_envio_em ainda vazio). Assim,
+    vários pedidos simultâneos não furam o limite enquanto os e-mails saem.
+    """
     return sessao.scalar(
         select(func.count())
         .select_from(TokenRedefinicaoSenha)
         .where(
             TokenRedefinicaoSenha.usuario_id == usuario_id,
             TokenRedefinicaoSenha.criado_em > func.now() - timedelta(hours=1),
+            TokenRedefinicaoSenha.falha_envio_em.is_(None),
         )
     )
 
@@ -142,7 +169,9 @@ def redefinir_senha(sessao: Session, token: str, nova_senha: str) -> None:
         .with_for_update()
         .execution_options(populate_existing=True)
     )
-    if registro is None or not registro.usuario.ativo:
+    # Link cujo e-mail não saiu: ninguém deveria tê-lo, então é "inválido"
+    # (e não "já usado", o que seria falso).
+    if registro is None or registro.falha_envio_em is not None or not registro.usuario.ativo:
         raise link_invalido()
     if registro.usado_em is not None or not registro.ativo:
         raise link_ja_usado()

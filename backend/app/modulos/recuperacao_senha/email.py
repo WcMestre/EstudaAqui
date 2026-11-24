@@ -39,11 +39,12 @@ cliente_email = FastMail(
 )
 
 
-async def enviar_email_redefinicao(destinatario: str, nome: str, link: str) -> None:
+async def enviar_email_redefinicao(destinatario: str, nome: str, link: str) -> bool:
     """Envia o e-mail com versão HTML e versão em texto puro.
 
-    Falhas são registradas no log (sem o link, que é secreto) e não sobem:
-    isto roda em segundo plano, depois que a resposta já foi enviada.
+    Devolve True se o servidor SMTP aceitou a mensagem. Falhas são registradas
+    no log (sem o link, que é secreto) e não sobem: isto roda em segundo
+    plano, depois que a resposta já foi enviada.
     """
     mensagem = MessageSchema(
         subject="Redefinição de senha - EstudaAqui",
@@ -60,3 +61,5 @@ async def enviar_email_redefinicao(destinatario: str, nome: str, link: str) -> N
         )
     except Exception:
         log.exception("Falha ao enviar o e-mail de redefinição de senha")
+        return False
+    return True
