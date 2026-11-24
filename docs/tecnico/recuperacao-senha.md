@@ -3,7 +3,7 @@
 > Documento técnico da entrega 1.2 do [escopo](../ESCOPO.md). Registra o que
 > foi feito, as decisões tomadas e o motivo de cada uma.
 >
-> **Situação:** em andamento (F1 a F6 concluídas; próxima: F7). Branch `sprint-1/recuperar-senha`.
+> **Situação:** implementação concluída (F1 a F7); aguardando revisão no Pull Request. Branch `sprint-1/recuperar-senha`.
 
 ## 1. O que a entrega faz
 
@@ -22,7 +22,7 @@ mensagem clara e oferece pedir outro.
 | F4 | Front-end: base provisória, telas definitivas e testes (Vitest) | Concluída |
 | F5 | Teste ponta a ponta (Playwright + Mailpit) | Concluída |
 | F6 | Verificação final: critérios, Definição de pronto, revisão de segurança | Concluída |
-| F7 | Documentação final (CLAUDE.md, este documento) e Pull Request | Pendente |
+| F7 | Documentação final (CLAUDE.md, este documento) e Pull Request | Concluída |
 
 ## 3. Arquitetura
 
@@ -230,7 +230,36 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
   `a@x.com`, o link vai para um deles. Normalizar e-mails é da [1.1]/[1.4].
 - O limite é por e-mail; não há limite por IP (a issue não pede).
 
-## 7. O que é provisório
+## 7. Como rodar e testar
+
+Os comandos (instalar, rodar, migrar, testar) estão no [CLAUDE.md](../../CLAUDE.md#comandos).
+Roteiro manual da entrega:
+
+1. `docker compose up -d`; na pasta `backend/`, `uv run alembic upgrade head` e `uv run uvicorn app.main:app --reload`; na pasta `frontend/`, `npm run dev`.
+2. Cadastre um usuário de teste (ainda não há tela de cadastro, que é da [1.4]):
+   `cd backend && uv run python -c "from app.banco import SessaoLocal; from app.modulos.usuarios.modelos import Usuario; from app.modulos.usuarios.seguranca import gerar_hash_senha as h; s=SessaoLocal(); s.add(Usuario(nome='Teste', email='teste@example.com', senha_hash=h('SenhaAntiga123'), papel='aluno')); s.commit()"`
+3. Em http://localhost:3000/login, clique em **Esqueci minha senha** e informe `teste@example.com`. Repita com `ninguem@example.com`: a mensagem é a mesma.
+4. Abra o e-mail em http://localhost:8025 e clique em **Criar nova senha**. O token some da barra de endereço.
+5. Defina a nova senha e entre com ela em `/login`. A senha antiga é recusada.
+6. Abra o mesmo link do e-mail de novo e tente usar: aparece "Este link já foi usado" com o botão **Pedir novo link**.
+
+## 8. Tamanho da entrega
+
+Linhas adicionadas na branch em relação à `main` (`git diff --numstat main..HEAD`):
+
+| Grupo | Arquivos | Linhas | % |
+|---|---:|---:|---:|
+| Gerados automaticamente (travas de versão `package-lock.json`/`uv.lock` = 11.948; componentes e configurações do shadcn/Next/Alembic) | 17 | 12.643 | 79,5 |
+| Base provisória ([0.1], [0.2], [0.3], [1.1]) | 24 | 860 | 5,4 |
+| Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.179 | 7,4 |
+| Código definitivo da #6 | 18 | 826 | 5,2 |
+| Documentação (este documento e `CLAUDE.md`) | 2 | 318 | 2,0 |
+| Configuração (`package.json`, `.gitignore`, Prettier, `.nvmrc`, `__init__.py`) | 10 | 78 | 0,5 |
+| **Total** | **92** | **15.904** | 100 |
+
+Sem os arquivos gerados, a entrega tem 3.261 linhas escritas à mão, das quais 36 % são testes.
+
+## 9. O que é provisório
 
 Todo arquivo provisório tem no topo o comentário
 `PROVISÓRIO: substituir pela implementação da issue [x.y]`. Ao substituir,
@@ -245,7 +274,7 @@ Fora da base provisória (são entregas de outras issues): rota `/saude`, seed d
 administrador, CI, limite de tentativas de login, redirecionamento por perfil,
 `middleware.ts`.
 
-## 8. Pontos a combinar com o grupo
+## 10. Pontos a combinar com o grupo
 
 Situação em 24/11/2026: **a combinar** (o grupo ainda não foi avisado).
 
@@ -253,6 +282,14 @@ Situação em 24/11/2026: **a combinar** (o grupo ainda não foi avisado).
 - Com o responsável pela [1.1]: coluna `senha_alterada_em`, verificação do
   `iat` no `usuario_atual` e `iat` com fração de segundo.
 
-## 9. O que falta
+## 11. O que falta
 
-- [ ] F7 — comandos no `CLAUDE.md`, `.env.example` final, versão final deste documento e rascunho do PR.
+- [ ] Revisão do PR por outro desenvolvedor (sugestão: responsável pela [1.1], por causa dos pontos da seção 10).
+- [ ] Autor repetir o roteiro manual da seção 7 no navegador (Definição de pronto).
+- [ ] Avisar o grupo e combinar os pontos da seção 10.
+- [ ] `README.md` da raiz ainda diz "nenhum código implementado"; a seção "Como rodar o projeto" é entrega da [0.1].
+
+**Melhorias futuras sugeridas** (configuração do repositório, fora do código):
+ativar o **Dependabot** (avisos e PRs automáticos de dependências vulneráveis)
+e o **CodeQL** (análise de segurança do código a cada PR) em
+*Settings → Code security*.
