@@ -78,6 +78,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Validade de 1 hora | Exigência da issue; limita a janela de uso de um e-mail esquecido aberto. |
 | Uso único + invalidação dos outros links pendentes | Um e-mail antigo esquecido na caixa de entrada não vira "porta dos fundos". O link usado recebe `usado_em`; os outros, `ativo = false`. |
 | `SELECT ... FOR UPDATE` no token e no usuário | Duas requisições simultâneas com o mesmo link não trocam a senha duas vezes, e pedidos simultâneos não furam o limite. |
+| Na troca, trava **sempre o usuário primeiro** e depois o link | Com dois links diferentes da mesma conta usados ao mesmo tempo, travar o link primeiro causava deadlock (erro 500). Com o usuário primeiro, as requisições fazem fila e a segunda recebe `link_ja_usado` (ver §12). |
 | Usuário inativado não recebe link nem redefine | Regra 7 do CLAUDE.md (inativado não acessa). |
 
 ### Não revelar quem tem conta
@@ -148,7 +149,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Critério / requisito | Back-end (pytest) | Front-end (Vitest) |
 |---|---|---|
 | C1 — "Esqueci minha senha" com mensagem igual para todos | `test_email_cadastrado_recebe_mensagem_generica_e_um_email`, `test_mesma_mensagem_para_email_inexistente`, `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo` | link no login; envio mostra a mensagem genérica |
-| C2 — link de 1 hora e uso único | `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez` | — |
+| C2 — link de 1 hora e uso único | `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez`, `test_dois_links_da_mesma_conta_usados_ao_mesmo_tempo_so_um_funciona` | — |
 | C3 — nova senha funciona e permite entrar | `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha`, `test_senha_antiga_deixa_de_funcionar_apos_redefinir` | sucesso leva a "Entrar" |
 | C4 — link expirado/usado: mensagem clara e pedir outro | `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_link_inexistente_e_recusado` | 3 códigos + sem token oferecem "Pedir novo link" |
 | Só o hash do token | `test_token_fica_guardado_apenas_como_hash_sha256` | — |
@@ -156,7 +157,7 @@ Tabela `tokens_redefinicao_senha`: `id`, `usuario_id`, `token_hash`,
 | Senha com 8+ caracteres | `test_senha_com_menos_de_8_caracteres_e_recusada_sem_gastar_o_link` | 7 caracteres recusados |
 | Redefinir encerra sessões | `test_redefinir_encerra_as_sessoes_abertas_antes` | — |
 | Mensagens em português | `test_mensagens_em_portugues.py` (14 casos) | — |
-| Segurança (ataques específicos) | `test_seguranca.py` (3 testes; ver §6.3) | — |
+| Segurança (ataques específicos) | `test_seguranca.py` (4 testes; ver §6.3) | — |
 
 Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
 
@@ -167,7 +168,7 @@ Ponta a ponta (Playwright, `frontend/e2e/recuperacao-senha.spec.ts`):
 
 ## 6. Verificação final (F6)
 
-Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLint,
+Executada em 24/11/2026: pytest 38/38 (37 + 1 da revisão do PR, §12), Vitest 14/14, Playwright 2/2; ruff, ESLint,
 `tsc`, Prettier e `alembic check` sem pendências.
 
 ### 6.1 Critérios de aceite da issue #6
@@ -175,7 +176,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 | # | Critério | Comprovação | Resultado |
 |---|---|---|---|
 | C1 | Na tela de login existe "Esqueci minha senha"; o usuário informa o e-mail e recebe a mesma mensagem, exista o e-mail ou não | Vitest: link no login aponta para `/esqueci-senha`; envio mostra a mensagem genérica. pytest: `test_email_cadastrado_recebe_mensagem_generica_e_um_email`, `test_mesma_mensagem_para_email_inexistente`, `test_mesma_mensagem_e_nenhum_email_para_usuario_inativo`. Playwright: clica no link do login e vê a mensagem | Atendido |
-| C2 | O e-mail contém um link com validade limitada (1 hora) e de uso único | pytest: `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez`. Playwright: link lido no Mailpit; link já usado | Atendido |
+| C2 | O e-mail contém um link com validade limitada (1 hora) e de uso único | pytest: `test_token_expira_em_uma_hora`, `test_email_informa_que_o_link_vale_por_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_usar_um_link_invalida_os_outros_links_pendentes`, `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez`, `test_dois_links_da_mesma_conta_usados_ao_mesmo_tempo_so_um_funciona`. Playwright: link lido no Mailpit; link já usado | Atendido |
 | C3 | Pelo link o usuário define uma nova senha e consegue entrar com ela | pytest: `test_redefinir_com_link_valido_permite_entrar_com_a_nova_senha`, `test_senha_antiga_deixa_de_funcionar_apos_redefinir`. Vitest: sucesso oferece "Entrar". Playwright: entra com a nova senha; a antiga é recusada | Atendido |
 | C4 | Link expirado ou já usado mostra mensagem clara e oferece pedir outro | pytest: `test_link_expirado_e_recusado_com_mensagem_clara`, `test_link_ja_usado_e_recusado_com_mensagem_clara`, `test_link_inexistente_e_recusado`. Vitest: os 3 códigos e a falta de token mostram a mensagem e "Pedir novo link". Playwright: link já usado → mensagem → "Pedir novo link" abre `/esqueci-senha` | Atendido |
 
@@ -185,7 +186,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 |---|---|---|
 | Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR com pedido de revisão aberto na F7, aguardando o revisor |
 | Critérios de aceite verificados manualmente, passo a passo | Atendido | Roteiro manual da seção 7 (10 passos) executado pelo autor no navegador em 24/11/2026, todos com o resultado esperado; conferido pelos registros da API, do banco e do Mailpit. Antes disso: servidor real e Mailpit (F3) e navegador real via Playwright (F5) |
-| Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 37, Vitest 14, Playwright 2 |
+| Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 38, Vitest 14, Playwright 2 |
 | Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
 | Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura de todos os commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
 | Comandos novos registrados no `CLAUDE.md` | Atendido | Seção "Comandos" com a escolha do `uv` e os comandos de instalar, rodar, migrar e testar (back, front e ponta a ponta), conferidos num clone novo da branch (F7) |
@@ -211,6 +212,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 | Vazamento do banco expõe links válidos | Só o hash SHA-256 é guardado | `test_token_fica_guardado_apenas_como_hash_sha256` |
 | Reusar um link | Uso único (`usado_em`) | `test_link_ja_usado_e_recusado_com_mensagem_clara`; Playwright "link já usado" |
 | Usar o mesmo link várias vezes em paralelo | `SELECT ... FOR UPDATE` no token | `test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez` (sem o `FOR UPDATE` o teste falha: 5 trocas aceitas) |
+| Usar dois links diferentes da mesma conta em paralelo | Ordem de travamento fixa: usuário primeiro, depois o link | `test_dois_links_da_mesma_conta_usados_ao_mesmo_tempo_so_um_funciona` (20 rodadas seguidas; antes da correção falhava na 1ª com erro 500 por deadlock) |
 | E-mail antigo esquecido na caixa vira porta dos fundos | Usar um link invalida os pendentes | `test_usar_um_link_invalida_os_outros_links_pendentes` |
 | Link usado muito depois | Validade de 1 hora | `test_token_expira_em_uma_hora`, `test_link_expirado_e_recusado_com_mensagem_clara` |
 | Inundar a caixa de alguém | 3 pedidos por hora por e-mail, silencioso | `test_limite_de_tres_pedidos_por_hora_e_silencioso`, `test_limite_e_contado_separadamente_para_cada_email`, `test_pedidos_com_mais_de_uma_hora_nao_contam_para_o_limite` |
@@ -249,15 +251,15 @@ Linhas adicionadas na branch em relação à `main` (`git diff --numstat main..H
 
 | Grupo | Arquivos | Linhas | % |
 |---|---:|---:|---:|
-| Gerados automaticamente (travas de versão `package-lock.json`/`uv.lock` = 11.948; componentes e configurações do shadcn/Next/Alembic) | 17 | 12.643 | 79,5 |
+| Gerados automaticamente (travas de versão `package-lock.json`/`uv.lock` = 11.948; componentes e configurações do shadcn/Next/Alembic) | 17 | 12.643 | 79,0 |
 | Base provisória ([0.1], [0.2], [0.3], [1.1]) | 24 | 860 | 5,4 |
-| Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.179 | 7,4 |
-| Código definitivo da #6 | 18 | 826 | 5,2 |
-| Documentação (este documento e `CLAUDE.md`) | 2 | 317 | 2,0 |
+| Testes (pytest, Vitest, Playwright e preparação do banco e2e) | 21 | 1.222 | 7,6 |
+| Código definitivo da #6 | 18 | 844 | 5,3 |
+| Documentação (este documento e `CLAUDE.md`) | 2 | 348 | 2,2 |
 | Configuração (`package.json`, `.gitignore`, Prettier, `.nvmrc`, `__init__.py`) | 10 | 78 | 0,5 |
-| **Total** | **92** | **15.903** | 100 |
+| **Total** | **92** | **15.995** | 100 |
 
-Sem os arquivos gerados, a entrega tem 3.260 linhas escritas à mão, das quais 36 % são testes.
+Sem os arquivos gerados, a entrega tem 3.352 linhas escritas à mão, das quais 36 % são testes.
 
 ## 9. O que é provisório
 
@@ -292,3 +294,32 @@ Situação em 24/11/2026: **a combinar** (o grupo ainda não foi avisado).
 ativar o **Dependabot** (avisos e PRs automáticos de dependências vulneráveis)
 e o **CodeQL** (análise de segurança do código a cada PR) em
 *Settings → Code security*.
+
+## 12. Ajustes da revisão do PR
+
+### 12.1 Dois links da mesma conta usados ao mesmo tempo
+
+**O problema.** O teste antigo só cobria o mesmo link enviado várias vezes.
+Com dois links **diferentes** da mesma conta usados juntos, o segundo recebia
+**erro 500**. O teste novo
+(`test_dois_links_da_mesma_conta_usados_ao_mesmo_tempo_so_um_funciona`, 20
+rodadas seguidas) falhou já na 1ª rodada, e o log do Postgres mostrou
+`deadlock detected`.
+
+**A causa, em português simples.** Cada requisição "segurava" (travava) o
+próprio link e depois precisava de duas coisas que estavam com a outra:
+
+1. A requisição A trava o link A; a B trava o link B.
+2. A troca a senha (trava o usuário) e tenta invalidar o link B, mas ele está com a B. A espera.
+3. B tenta trocar a senha, mas o usuário está com a A. B espera.
+4. Uma espera a outra para sempre. O Postgres percebe, cancela uma delas e ela vira erro 500.
+
+**A correção.** Uma ordem de travamento fixa: **sempre o usuário primeiro,
+depois o link** (`redefinir_senha` em `servico.py`). Quem chega depois fica na
+fila do usuário sem segurar nada e, quando entra, lê o próprio link de novo
+(`populate_existing`), já invalidado pela primeira, e recebe `link_ja_usado`.
+
+**Comprovação.** Teste novo: 5 execuções de 20 rodadas (100 disputas), todas
+com um `200` e um `400 link_ja_usado`, sem nenhum deadlock no log. pytest 38,
+Vitest 14 e Playwright 2 passando; ruff sem pendências.
+

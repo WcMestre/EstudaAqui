@@ -117,12 +117,30 @@ def _pedidos_na_ultima_hora(sessao: Session, usuario_id: int) -> int:
 
 
 def redefinir_senha(sessao: Session, token: str, nova_senha: str) -> None:
-    # FOR UPDATE: se o mesmo link for enviado duas vezes ao mesmo tempo, a
-    # segunda requisição espera a primeira terminar e então o vê como usado.
+    token_hash = calcular_hash(token)
+
+    # Ordem de travamento: SEMPRE a linha do usuário primeiro, depois a do link.
+    # Requisições que mexem na mesma conta (o mesmo link repetido ou links
+    # diferentes) fazem fila no usuário: a segunda espera a primeira terminar
+    # e então vê o próprio link como usado ou invalidado. Travar o link
+    # primeiro causava deadlock: cada requisição segurava o seu link e
+    # esperava o link da outra (ao invalidá-lo) ou o usuário.
+    usuario_id = sessao.scalar(
+        select(TokenRedefinicaoSenha.usuario_id).where(
+            TokenRedefinicaoSenha.token_hash == token_hash
+        )
+    )
+    if usuario_id is None:
+        raise link_invalido()
+    sessao.scalar(select(Usuario).where(Usuario.id == usuario_id).with_for_update())
+
+    # Lido de novo já com o usuário travado: enxerga o que a requisição
+    # anterior gravou (populate_existing descarta o que estiver em memória).
     registro = sessao.scalar(
         select(TokenRedefinicaoSenha)
-        .where(TokenRedefinicaoSenha.token_hash == calcular_hash(token))
+        .where(TokenRedefinicaoSenha.token_hash == token_hash)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if registro is None or not registro.usuario.ativo:
         raise link_invalido()

@@ -73,3 +73,46 @@ def test_mesmo_link_enviado_ao_mesmo_tempo_so_funciona_uma_vez(
         resultados = list(paralelo.map(usar_link, [f"SenhaParalela{i}" for i in range(5)]))
 
     assert sorted(resultados) == [200, 400, 400, 400, 400]
+
+
+RODADAS_DOIS_LINKS_EM_PARALELO = 20
+
+
+def test_dois_links_da_mesma_conta_usados_ao_mesmo_tempo_so_um_funciona(
+    cliente, criar_usuario, caixa_de_saida
+):
+    """Ataque: pedir dois links e usar os dois em paralelo para trocar a senha duas vezes.
+
+    Um deve funcionar e o outro receber `link_ja_usado`; nunca erro 500 nem
+    travamento. Repetido várias vezes porque a disputa depende do momento
+    exato em que cada requisição chega ao banco.
+    """
+    from app.main import app
+
+    def usar_link(token: str, senha: str) -> tuple[int, str | None]:
+        # raise_server_exceptions=False: um erro interno vira resposta 500 em
+        # vez de exceção, para o teste mostrar o que o usuário receberia.
+        with TestClient(
+            app, base_url="https://testserver", raise_server_exceptions=False
+        ) as outro_cliente:
+            resposta = outro_cliente.post(
+                URL_REDEFINIR_SENHA, json={"token": token, "nova_senha": senha}
+            )
+            codigo = resposta.json().get("codigo") if resposta.status_code == 400 else None
+            return resposta.status_code, codigo
+
+    for rodada in range(RODADAS_DOIS_LINKS_EM_PARALELO):
+        email = f"aluno{rodada}@example.com"
+        criar_usuario(email=email)
+        primeiro_link = pedir_link(cliente, caixa_de_saida, email)
+        segundo_link = pedir_link(cliente, caixa_de_saida, email)
+
+        with ThreadPoolExecutor(max_workers=2) as paralelo:
+            tarefas = [
+                paralelo.submit(usar_link, primeiro_link, "SenhaDoPrimeiro1"),
+                paralelo.submit(usar_link, segundo_link, "SenhaDoSegundo2"),
+            ]
+            # O timeout transforma um travamento em falha, em vez de deixar o teste parado.
+            resultados = sorted(tarefa.result(timeout=30) for tarefa in tarefas)
+
+        assert resultados == [(200, None), (400, "link_ja_usado")], f"rodada {rodada}"
