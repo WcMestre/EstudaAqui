@@ -183,12 +183,12 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 
 | Item | Situação | Comprovação |
 |---|---|---|
-| Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR e pedido de revisão na F7 |
+| Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR com pedido de revisão aberto na F7, aguardando o revisor |
 | Critérios de aceite verificados manualmente, passo a passo | Parcial | Fluxo executado com servidor real e Mailpit (F3) e com navegador real (Playwright, F5). Falta o autor repetir o roteiro "Como testar" do PR no próprio navegador |
 | Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 37, Vitest 14, Playwright 2 |
 | Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
 | Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura dos 6 commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
-| Comandos novos registrados no `CLAUDE.md` | Pendente | Feito na F7 |
+| Comandos novos registrados no `CLAUDE.md` | Atendido | Seção "Comandos" com a escolha do `uv` e os comandos de instalar, rodar, migrar e testar (back, front e ponta a ponta), conferidos num clone novo da branch (F7) |
 
 ### 6.3 Revisão de segurança
 
