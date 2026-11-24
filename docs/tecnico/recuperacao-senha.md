@@ -184,7 +184,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 | Item | Situação | Comprovação |
 |---|---|---|
 | Branch própria e integração via PR revisado por outro desenvolvedor | Parcial | Branch `sprint-1/recuperar-senha` no GitHub. PR com pedido de revisão aberto na F7, aguardando o revisor |
-| Critérios de aceite verificados manualmente, passo a passo | Parcial | Fluxo executado com servidor real e Mailpit (F3) e com navegador real (Playwright, F5). Falta o autor repetir o roteiro "Como testar" do PR no próprio navegador |
+| Critérios de aceite verificados manualmente, passo a passo | Atendido | Roteiro manual da seção 7 (10 passos) executado pelo autor no navegador em 24/11/2026, todos com o resultado esperado; conferido pelos registros da API, do banco e do Mailpit. Antes disso: servidor real e Mailpit (F3) e navegador real via Playwright (F5) |
 | Testes automatizados criados e passando (pytest; vitest/playwright quando há tela) | Atendido | pytest 37, Vitest 14, Playwright 2 |
 | Regras de permissão garantidas no back-end | Atendido | Toda regra (usuário inativo, validade, uso único, limite, sessões) está em `servico.py`/`dependencias.py` e é comprovada pelo pytest direto na API, sem passar pelo front. O Zod no front só repete validações |
 | Nenhum segredo versionado; `.env.example` atualizado | Atendido | Varredura de todos os commits da branch (§6.3). `.env.example` (raiz e `frontend/`) com todas as variáveis novas |
@@ -233,7 +233,7 @@ Executada em 24/11/2026: pytest 37/37, Vitest 14/14, Playwright 2/2; ruff, ESLin
 ## 7. Como rodar e testar
 
 Os comandos (instalar, rodar, migrar, testar) estão no [CLAUDE.md](../../CLAUDE.md#comandos).
-Roteiro manual da entrega:
+Roteiro manual da entrega (executado pelo autor em 24/11/2026, todos os passos com o resultado esperado):
 
 1. `docker compose up -d`; na pasta `backend/`, `uv run alembic upgrade head` e `uv run uvicorn app.main:app --reload`; na pasta `frontend/`, `npm run dev`.
 2. Cadastre um usuário de teste (ainda não há tela de cadastro, que é da [1.4]):
@@ -285,7 +285,6 @@ Situação em 24/11/2026: **a combinar** (o grupo ainda não foi avisado).
 ## 11. O que falta
 
 - [ ] Revisão do PR por outro desenvolvedor (sugestão: responsável pela [1.1], por causa dos pontos da seção 10).
-- [ ] Autor repetir o roteiro manual da seção 7 no navegador (Definição de pronto).
 - [ ] Avisar o grupo e combinar os pontos da seção 10.
 - [ ] `README.md` da raiz ainda diz "nenhum código implementado"; a seção "Como rodar o projeto" é entrega da [0.1].
 
