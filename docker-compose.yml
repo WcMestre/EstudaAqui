@@ -1,0 +1,29 @@
+# PROVISÓRIO: substituir pela implementação da issue [0.1]
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-estudaaqui}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-estudaaqui}
+      POSTGRES_DB: ${POSTGRES_DB:-estudaaqui}
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-estudaaqui}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Adicionado pela issue [1.2]: "caixa de e-mail falsa" para desenvolvimento.
+  # A API envia por SMTP na porta 1025; os e-mails aparecem em
+  # http://localhost:8025 (e numa API REST, usada pelo teste ponta a ponta).
+  mailpit:
+    image: axllent/mailpit:v1.33.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  dados_postgres:
